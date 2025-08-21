@@ -1,0 +1,137 @@
+#!/bin/bash
+
+# 批量执行 ~/.config/script 目录下的脚本
+# 用法: run-all.sh [选项]
+#   -h, --help     显示帮助信息
+#   -v, --verbose  显示详细输出
+#   -n, --dry-run  仅显示将要执行的脚本，不实际执行
+#   -f, --filter   过滤脚本名称 (支持通配符)
+
+set -e # 遇到错误时退出
+
+SCRIPT_DIR="/home/bakaya/.config/script"
+VERBOSE=false
+DRY_RUN=false
+FILTER="*"
+
+# 解析命令行参数
+while [[ $# -gt 0 ]]; do
+  case $1 in
+  -h | --help)
+    echo "用法: $0 [选项]"
+    echo "选项:"
+    echo "  -h, --help     显示此帮助信息"
+    echo "  -v, --verbose  显示详细输出"
+    echo "  -n, --dry-run  仅显示将要执行的脚本，不实际执行"
+    echo "  -f, --filter   过滤脚本名称 (支持通配符，如: '*.sh' 或 'key*')"
+    echo ""
+    echo "示例:"
+    echo "  $0                    # 执行所有脚本"
+    echo "  $0 -v                 # 详细模式执行所有脚本"
+    echo "  $0 -n                 # 预览将要执行的脚本"
+    echo "  $0 -f '*.sh'          # 只执行 .sh 脚本"
+    echo "  $0 -f 'key*' -v       # 详细模式执行以 'key' 开头的脚本"
+    exit 0
+    ;;
+  -v | --verbose)
+    VERBOSE=true
+    shift
+    ;;
+  -n | --dry-run)
+    DRY_RUN=true
+    shift
+    ;;
+  -f | --filter)
+    FILTER="$2"
+    shift 2
+    ;;
+  *)
+    echo "未知选项: $1"
+    echo "使用 -h 或 --help 查看帮助"
+    exit 1
+    ;;
+  esac
+done
+
+# 检查脚本目录是否存在
+if [[ ! -d "$SCRIPT_DIR" ]]; then
+  echo "错误: 脚本目录 $SCRIPT_DIR 不存在"
+  exit 1
+fi
+
+# 找到所有可执行的脚本文件
+scripts=()
+while IFS= read -r -d '' file; do
+  scripts+=("$file")
+done < <(find "$SCRIPT_DIR" -maxdepth 1 -name "$FILTER" -type f -executable -not -name "$(basename "$0")" -print0 2>/dev/null | sort -z)
+
+# 检查是否找到脚本
+if [[ ${#scripts[@]} -eq 0 ]]; then
+  echo "在 $SCRIPT_DIR 中没有找到匹配 '$FILTER' 的可执行脚本"
+  exit 1
+fi
+
+echo "找到 ${#scripts[@]} 个脚本:"
+for script in "${scripts[@]}"; do
+  echo "  - $(basename "$script")"
+done
+echo
+
+# 如果是预览模式，直接退出
+if [[ "$DRY_RUN" == "true" ]]; then
+  echo "预览模式: 以上脚本将被执行"
+  exit 0
+fi
+
+# 执行脚本
+success_count=0
+failed_scripts=()
+
+for script in "${scripts[@]}"; do
+  script_name=$(basename "$script")
+
+  if [[ "$VERBOSE" == "true" ]]; then
+    echo "========================================="
+    echo "执行脚本: $script_name"
+    echo "========================================="
+  else
+    echo "执行: $script_name"
+  fi
+
+  if [[ "$VERBOSE" == "true" ]]; then
+    if "$script"; then
+      echo "✓ $script_name 执行成功"
+      ((success_count++))
+    else
+      echo "✗ $script_name 执行失败"
+      failed_scripts+=("$script_name")
+    fi
+  else
+    if "$script" >/dev/null 2>&1; then
+      echo "✓ $script_name 执行成功"
+      ((success_count++))
+    else
+      echo "✗ $script_name 执行失败"
+      failed_scripts+=("$script_name")
+    fi
+  fi
+
+  if [[ "$VERBOSE" == "true" ]]; then
+    echo
+  fi
+done
+
+# 显示执行结果总结
+echo "========================================="
+echo "执行完成!"
+echo "成功: $success_count/${#scripts[@]}"
+
+if [[ ${#failed_scripts[@]} -gt 0 ]]; then
+  echo "失败的脚本:"
+  for failed in "${failed_scripts[@]}"; do
+    echo "  - $failed"
+  done
+  exit 1
+else
+  echo "所有脚本都执行成功!"
+fi

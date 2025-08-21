@@ -1,0 +1,10 @@
+(defcfg
+  input  (device-file "/dev/input/by-id/usb-ITE_Tech._Inc._ITE_Device_8258_-event-kbd")
+  output (uinput-sink "KMonad test")
+  fallthrough true)
+
+(defsrc
+  caps esc)
+
+(deflayer base
+  esc  caps)

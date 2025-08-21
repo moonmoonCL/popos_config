@@ -1,0 +1,10 @@
+*
+!.gitignore
+
+*/
+!script/
+!kmonad/
+!nvim/
+!script/**
+!nvim/**
+!kmonad/**
