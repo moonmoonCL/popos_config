@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# sudo nohup ./run-my-script > /dev/null 2>&1 &
 # 批量执行 ~/.config/script 目录下的脚本
 # 用法: run-all.sh [选项]
 #   -h, --help     显示帮助信息
